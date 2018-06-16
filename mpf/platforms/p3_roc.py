@@ -46,8 +46,6 @@ class P3RocHardwarePlatform(PROCBasePlatform, I2cPlatform, AccelerometerPlatform
         if self.machine_type != self.pinproc.MachineTypePDB:
             raise AssertionError("P3-Roc can only handle PDB driver boards")
 
-        self.connect()
-
         # Because PDBs can be configured in many different ways, we need to
         # traverse the YAML settings to see how many PDBs are being used.
         # Then we can configure the P3-ROC appropriately to use those PDBs.
@@ -55,7 +53,7 @@ class P3RocHardwarePlatform(PROCBasePlatform, I2cPlatform, AccelerometerPlatform
         # the collections.
 
         self.debug_log("Configuring P3-ROC for PDB driver boards.")
-        self.pdbconfig = PDBConfig(self.proc, self.machine.config, self.pinproc.DriverCount)
+        self.pdbconfig = PDBConfig(self, self.machine.config, self.pinproc.DriverCount)
 
         self.acceleration = [0] * 3
         self.accelerometer_device = None    # type: PROCAccelerometer
@@ -128,26 +126,27 @@ class P3RocHardwarePlatform(PROCBasePlatform, I2cPlatform, AccelerometerPlatform
         enable = 0x0F
 
         # configure some P3-Roc registers
-        self.proc.write_data(6, 0x000, enable)
+
+        self.run_proc_cmd_no_wait("write_data", 6, 0x000, enable)
 
         # CTRL_REG1 - set to standby
-        self.proc.write_data(6, 0x12A, 0)
+        self.run_proc_cmd_no_wait("write_data", 6, 0x12A, 0)
 
         # XYZ_DATA_CFG - disable high pass filter, scale 0 to 2g
-        self.proc.write_data(6, 0x10E, 0x00)
+        self.run_proc_cmd_no_wait("write_data", 6, 0x10E, 0x00)
 
         # CTRL_REG1 - set device to active and in low noise mode
         # 800HZ output data rate
-        self.proc.write_data(6, 0x12A, 0x05)
+        self.run_proc_cmd_no_wait("write_data", 6, 0x12A, 0x05)
 
         # CTRL_REG2 - set no sleep, high resolution mode
-        self.proc.write_data(6, 0x12B, 0x02)
+        self.run_proc_cmd_no_wait("write_data", 6, 0x12B, 0x02)
 
         # for auto-polling of accelerometer every 128 ms (8 times a sec). set 0x0F
         # disable polling + IRQ status addr FF_MT_SRC
-        self.proc.write_data(6, 0x000, 0x1E0F)
+        self.run_proc_cmd_no_wait("write_data", 6, 0x000, 0x1E0F)
         # flush data to proc
-        self.proc.flush()
+        self.run_proc_cmd_no_wait("flush")
 
     def get_info_string(self):
         """Dump infos about boards."""
@@ -157,8 +156,8 @@ class P3RocHardwarePlatform(PROCBasePlatform, I2cPlatform, AccelerometerPlatform
         infos += "SW-16 boards found:\n"
 
         for board in range(0, 32):
-            device_type = self.proc.read_data(2, (1 << 12) + (board << 6))
-            board_id = self.proc.read_data(2, (1 << 12) + (board << 6) + 1)
+            device_type = self.run_proc_cmd_sync("read_data", 2, (1 << 12) + (board << 6))
+            board_id = self.run_proc_cmd_sync("read_data", 2, (1 << 12) + (board << 6) + 1)
             if device_type != 0:
                 infos += " - Board: {} Switches: 16 Device Type: {:X} Board ID: {:X}\n".format(
                     board, device_type, board_id)
@@ -214,7 +213,7 @@ class P3RocHardwarePlatform(PROCBasePlatform, I2cPlatform, AccelerometerPlatform
         3 - closed (not debounced)
         4 - open (not debounced)
         """
-        states = self.proc.switch_get_states()
+        states = yield from self.run_proc_cmd("switch_get_states")
 
         for switch, state in enumerate(states):
             # Note: The P3-ROC will return a state of "3" for switches from non-
