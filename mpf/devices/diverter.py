@@ -105,9 +105,6 @@ class Diverter(SystemWideDevice):
         If an 'activation_switches' is configured, then this method writes a
         hardware autofire rule to the pinball controller which fires the
         diverter coil when the switch is activated.
-
-        If no `activation_switches` is specified, then the diverter is activated
-        immediately.
         """
         self.enabled = True
 
@@ -115,9 +112,8 @@ class Diverter(SystemWideDevice):
                                  auto=auto)
         '''event: diverter_(name)_enabling
         desc: The diverter called (name) is enabling itself. Note that if this
-            diverter has ``activation_switches:`` configured, it will not
-            physically activate until one of those switches is hit. Otherwise
-            this diverter will activate immediately.
+            diverter has no ``activation_switches:`` or ``activate_events:``
+            configured, it will activate immediately.
 
         args:
             auto: Boolean which indicates whether this diverter enabled itself
@@ -127,10 +123,8 @@ class Diverter(SystemWideDevice):
 
         if self.config['activation_switches']:
             self._enable_switches()
-        elif self.config['activate_events']:
-            pass
-        else:
-            self.activate()
+        elif not self.config['activate_events']:
+            self.activate()  # should throw an error when no activat* is in config instead of activating
 
     @event_handler(0)
     def event_disable(self, auto=False, **kwargs):
@@ -148,20 +142,18 @@ class Diverter(SystemWideDevice):
             auto: Boolean value which is used to indicate whether this
                 diverter disabled itself automatically. This is passed to the
                 event which is posted.
-            **kwargs: This is here because this disable method is called by
-                whatever event the game programmer specifies in their machine
-                configuration file, so we don't know what event that might be
-                or whether it has random kwargs attached to it.
         """
+        if not (self.config['activation_time'] or self.config['deactivation_switches'] or self.config['deactivate_events']):
+            self.deactivate() # only if there is no deactivation way 
+
         self.enabled = False
 
         self.machine.events.post('diverter_' + self.name + '_disabling',
                                  auto=auto)
         '''event: diverter_(name)_disabling
         desc: The diverter called (name) is disabling itself. Note that if this
-            diverter has ``activation_switches:`` configured, it will not
-            physically deactivate now, instead deactivating based on switch
-            hits and timing. Otherwise this diverter will deactivate immediately.
+            diverter has neither ``activation_time:``, ``deactivation_switches:``
+            or ``deactivate_events:`` configured, it will deactivate immediately.
 
         args:
             auto: Boolean which indicates whether this diverter disabled itself
@@ -172,10 +164,6 @@ class Diverter(SystemWideDevice):
         self.debug_log("Disabling Diverter")
         if self.config['activation_switches']:
             self._disable_switches()
-        # if there is no deactivation way
-        if not (self.config['activation_time'] or self.config['deactivation_switches'] or
-           self.config['deactivate_events']):
-            self.deactivate()
 
     def _coil_activate(self):
         """Activate the coil."""
@@ -200,18 +188,19 @@ class Diverter(SystemWideDevice):
         self.activate()
 
     def activate(self):
-        """Physically activate this diverter's coil."""
-        self.debug_log("Activating Diverter")
-        self.active = True
+        if self.enabled:
+            """Physically activate this diverter's coil."""
+            self.debug_log("Activating Diverter")
+            self.active = True
 
-        self.machine.events.post('diverter_' + self.name + '_activating')
-        '''event: diverter_(name)_activating
-        desc: The diverter called (name) is activating itself, which means
-            it's physically pulsing or holding the coil to move.
+            self.machine.events.post('diverter_' + self.name + '_activating')
+            '''event: diverter_(name)_activating
+            desc: The diverter called (name) is activating itself, which means
+                it's physically pulsing or holding the coil to move.
 
-        '''
-        self._coil_activate()
-        self.schedule_deactivation()
+            '''
+            self._coil_activate()
+            self.schedule_deactivation()
 
     @event_handler(2)
     def event_deactivate(self, **kwargs):
@@ -220,23 +209,24 @@ class Diverter(SystemWideDevice):
         self.deactivate()
 
     def deactivate(self):
-        """Deactivate this diverter.
+        if self.active:
+            """Deactivate this diverter.
 
-        This method will disable the activation_coil, and (optionally) if it's
-        configured with a deactivation coil, it will pulse it.
-        """
-        self.debug_log("Deactivating Diverter")
-        self.active = False
+            This method will disable the activation_coil, and (optionally) if it's
+            configured with a deactivation coil, it will pulse it.
+            """
+            self.debug_log("Deactivating Diverter")
+            self.active = False
 
-        if self.config['activation_time']:
-            self.delay.remove('deactivate_timed')
+            if self.config['activation_time']:
+                self.delay.remove('deactivate_timed')
 
-        self.machine.events.post('diverter_' + self.name + '_deactivating')
-        '''event: diverter_(name)_deactivating
-        desc: The diverter called (name) is deativating itself.
+            self.machine.events.post('diverter_' + self.name + '_deactivating')
+            '''event: diverter_(name)_deactivating
+            desc: The diverter called (name) is deativating itself.
 
-        '''
-        self._coil_deactivate()
+            '''
+            self._coil_deactivate()
 
     def schedule_deactivation(self):
         """Schedule a delay to deactivate this diverter."""
