@@ -1172,6 +1172,15 @@ osc:
     listen_ip: single|str|127.0.0.1
     listen_port: single|int|9000
     events_to_send: list|event_handler|None
+gepard:
+    __valid_in__: machine
+    __type__: config
+    dev_path: single|str|None
+    prefix: single|str|None
+    baud: single|int|115200
+    debug: single|bool|false
+    console_log: single|enum(none,basic,full)|none
+    file_log: single|enum(none,basic,full)|basic
 opp:
     __valid_in__: machine
     __type__: config
