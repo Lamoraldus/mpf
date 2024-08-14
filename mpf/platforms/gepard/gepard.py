@@ -222,8 +222,9 @@ class GepardHardwarePlatform(DriverPlatform, SwitchPlatform, LightsPlatform):
 		aCoilBoard   = self.boardFromDashedKey(coil.hw_driver.number)
 		if aSwitchBoard == aCoilBoard:
 			aSwitch = aSwitchBoard.deviceAtPortOfDashedKey(enable_switch.hw_switch.number)
-			aCoil = aCoilBoard.deviceAtPortOfDashedKey(coil.hw_driver.number)
+			aCoil   =   aCoilBoard.deviceAtPortOfDashedKey(coil.hw_driver.number)
 			aCoil._updateSettings(coil.pulse_settings, coil.hold_settings, 0) # update the coil settings
+			self.info_log(f"_switchCoilControl {aCoilBoard.id} coil:{aCoil.port:02X} switch:{aSwitch.port:02X} onState:{onstate} {startStop}")
 			aCoilBoard.sendStr(f"C~ {aCoil.port:02X} {aSwitch.port:02X} {onstate} {startStop}\n")
 
 	def set_pulse_on_hit_rule(self, enable_switch: SwitchSettings, coil: DriverSettings):
@@ -233,6 +234,7 @@ class GepardHardwarePlatform(DriverPlatform, SwitchPlatform, LightsPlatform):
 		autofire coils such as pop bumpers.
 		"""
 		self._switchCoilControl(enable_switch, coil, 1, 1)
+		print(f"set_pulse_on_hit_rule enable_switch{enable_switch} coil:{coil}")
 
 	def set_pulse_on_hit_and_release_rule(self, enable_switch: SwitchSettings, coil: DriverSettings):
 		"""Set pulse on hit and release rule to driver.
@@ -242,6 +244,7 @@ class GepardHardwarePlatform(DriverPlatform, SwitchPlatform, LightsPlatform):
 		"""
 		self._switchCoilControl(enable_switch, coil, 1, 1)
 		self._switchCoilControl(enable_switch, coil, 0, 0)
+		print(f"set_pulse_on_hit_and_release_rule enable_switch{enable_switch} coil:{coil}")
 
 	def set_pulse_on_hit_and_enable_and_release_rule(self, enable_switch: SwitchSettings, coil: DriverSettings):
 		"""Set pulse on hit and enable and release rule on driver.
@@ -251,6 +254,14 @@ class GepardHardwarePlatform(DriverPlatform, SwitchPlatform, LightsPlatform):
 		"""
 		self._switchCoilControl(enable_switch, coil, 1, 1)
 		self._switchCoilControl(enable_switch, coil, 0, 0)
+		print(f"set_pulse_on_hit_and_enable_and_release_rule enable_switch:{enable_switch} coil:{coil}")
+		# set_pulse_on_hit_and_enable_and_release_rule enable_switch:
+		# 	SwitchSettings(hw_switch=<Switch Gepard board 03 03-0D (config: {})>, invert=False, debounce=False)
+		#	coil:DriverSettings(hw_driver=<Driver Gepard board 03 03-4 (config: {})>,
+		#						pulse_settings=PulseSettings(power=1.0, duration=25),
+		#						hold_settings=HoldSettings(power=0.5, duration=None),
+		#						recycle=False)
+
 
 	def set_pulse_on_hit_and_release_and_disable_rule(self, enable_switch: SwitchSettings,
 													  eos_switch: SwitchSettings, coil: DriverSettings,
@@ -261,6 +272,7 @@ class GepardHardwarePlatform(DriverPlatform, SwitchPlatform, LightsPlatform):
 		the pulse is canceled and the driver gets disabled. When the eos_switch is hit the pulse is canceled
 		and the driver becomes disabled. Typically used on the main coil for dual-wound coil flippers with eos switch.
 		"""
+		print(f"set_pulse_on_hit_and_release_and_disable_rule enable_switch{enable_switch} eos_switch:{eos_switch} coil:{coil} repulse_settings:{repulse_settings}")
 		raise NotImplementedError
 
 	def set_pulse_on_hit_and_enable_and_release_and_disable_rule(self, enable_switch: SwitchSettings,
@@ -273,6 +285,7 @@ class GepardHardwarePlatform(DriverPlatform, SwitchPlatform, LightsPlatform):
 		and the driver becomes enabled (likely with PWM).
 		Typically used on the coil for single-wound coil flippers with eos switch.
 		"""
+		print(f"set_pulse_on_hit_and_enable_and_release_and_disable_rule enable_switch{enable_switch} eos_switch:{eos_switch} coil:{coil} repulse_settings:{repulse_settings}")
 		raise NotImplementedError
 
 
@@ -284,7 +297,7 @@ class GepardHardwarePlatform(DriverPlatform, SwitchPlatform, LightsPlatform):
 		This method should return a reference to the light
 		object which will be called to access the hardware.
 		"""
-		self.info_log(f"configure_light {number}");
+		# self.info_log(f"configure_light {number}");
 		aBoard  = self.boardFromDashedKey(number)
 		aDevice = aBoard.deviceAtPortOfDashedKey(number)
 		if type(aDevice) is GepardLEDString: # check if we have a led string

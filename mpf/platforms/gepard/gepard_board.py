@@ -9,6 +9,7 @@ MYPY = False
 if MYPY:	# pragma: no cover
 	from mpf.platforms.gepard.gepard import GepardHardwarePlatform   # pylint: disable-msg=cyclic-import,unused-import
 
+from mpf.core.logging import LogMixin
 
 class GepardBoard(BaseSerialCommunicator):
 
@@ -29,6 +30,9 @@ class GepardBoard(BaseSerialCommunicator):
 		self.receiveIndex = 0
 		self.receiveBuff = bytearray(1024)
 		self.portDevices	  = [None] * 32 # type: Array[GepardPort]
+		
+		# self.configure_logging("gepard.board", 'basic', 'full')
+
 
 	@classmethod
 	def boardKeyFromDashedKey(self, aKey):
@@ -51,6 +55,8 @@ class GepardBoard(BaseSerialCommunicator):
 			self._parse_msg(resp)
 
 	def sendStr(self, aString):
+		# print(f"sendStr {self.id} => {aString}")
+		# self.platform.info_log(f"sendStr {self.id} => {aString}")
 		self.send(aString.encode('ascii'))
 
 
@@ -115,18 +121,20 @@ class GepardBoard(BaseSerialCommunicator):
 			aDeviceID = f"{self.id}-{aPort:02X}-{anIndex:02X}"
 
 		# find out if this device number is already taken
+		aValueDict = None
 		isDeviceDefined = False
 		for aValueDict in aDeviceDict.values():
 			if aValueDict["number"] == aDeviceID:
+				# self.platform.info_log(f"injectDevice gpd_{aConfigName}_{aDeviceID} existed:{aValueDict}");
 				isDeviceDefined = True
-				return aValueDict
 				break
 
 		if not isDeviceDefined:
 			aValueDict = {"number": aDeviceID}
 			aDeviceDict[f"gpd_{aConfigName}_{aDeviceID}"] = aValueDict
 			self.platform.info_log(f"injectDevice gpd_{aConfigName}_{aDeviceID}");
-			return aValueDict
+
+		return aValueDict
 
 
 	def injectLEDStrip(self, aPort):
@@ -176,10 +184,17 @@ class GepardBoard(BaseSerialCommunicator):
 					match aMinorCommand:
 						case '>': # ignore only the A>: prompt
 							pass
-						case 'O':
-							match aMinorCommand:
-								case 'K': # ignore the OK: prompt
-									pass
+
+				case 'C':
+					pass
+
+				case 'L':
+					pass
+
+				case 'O':
+					match aMinorCommand:
+						case 'K': # ignore the OK: prompt
+							pass
 
 				case 'S':
 					# print(aDataString)  # SSSLCCCCCCSSSSCCSSSSSSSSSSSSSSAS
@@ -219,7 +234,7 @@ class GepardBoard(BaseSerialCommunicator):
 					match aMinorCommand:
 						case '?':
 							aPort = 0
-							#print(aDataString)  # SSSLCCCCCCSSSSCCSSSSSSSSSSSSSSAS
+							self.platform.info_log(aDataString)  # SSSLCCCCCCSSSSCCSSSSSSSSSSSSSSAS
 							for aPortChar in aDataString:
 								match aPortChar:
 									case 'C':
@@ -239,6 +254,10 @@ class GepardBoard(BaseSerialCommunicator):
 
 						case '@':
 							pass
+				case _:
+					print(f"**** ERROR: {aCommandString}")
+					self.platform.error_log(aCommandString)
+
 			if not ack:
 				self.platform.error_log("??")
 			if len(error) > 0:
@@ -282,7 +301,7 @@ class GepardBoard(BaseSerialCommunicator):
 
 	def start_tasks(self):
 		"""Start listening for commands and schedule watchdog."""
-		print(f"start_tasks {self}")
+		self.platform.info_log(f"start_tasks {self}")
 		#self.reset()
 
 #		if self.config['led_hz'] > 30:

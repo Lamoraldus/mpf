@@ -31,10 +31,10 @@ class GepardLEDString:
 		aCommand = f"L= {self.port:02X}"
 		for aLED in self.ledDict.values():
 			if aLED.needsUpdate:
+				aLED.needsUpdate = False
 				aCommand += aLED.updateString()
 				needsUpdate = True
 		if needsUpdate:
-			self.board.platform.info_log(f"updateLEDs {aCommand}");
+			# self.board.platform.info_log(f"updateLEDs {aCommand}");
 			aCommand += "\n"
-			aBytearray = aCommand.encode('ascii')
-			self.board.send(aBytearray)
+			self.board.sendStr(aCommand)

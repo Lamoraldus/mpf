@@ -14,10 +14,10 @@ class GepardCoil(DriverPlatformInterface):
 		super().__init__({}, number)
 		self.board = board
 		self.port  = int(self.number.split("-")[-1], 16)
-		self.pulsePower    = 0
-		self.pulseDuration = 0
-		self.holdPower     = 0
-		self.holdDuration  = 0
+		self.pulsePower    = None
+		self.pulseDuration = None
+		self.holdPower     = None
+		self.holdDuration  = None
 
 	def get_board_name(self):
 		"""Return Gepard board id."""
@@ -27,7 +27,7 @@ class GepardCoil(DriverPlatformInterface):
 		needsUpdate = False
 
 		if pulse_settings is not None and pulse_settings.duration is not None:
-			if pulse_settings.power != self.pulsePower:
+			if int(pulse_settings.power * 255) != self.pulsePower:
 				needsUpdate = True
 				self.pulsePower = int(pulse_settings.power * 255)
 			if pulse_settings.duration != self.pulseDuration:
@@ -37,19 +37,25 @@ class GepardCoil(DriverPlatformInterface):
 			self.pulsePower    = 0
 			self.pulseDuration = 0
 
-		if hold_settings is not None and hold_settings.duration is not None:
-			if hold_settings.power != self.holdPower:
+		if hold_settings is not None:
+			if int(hold_settings.power * 255) != self.holdPower:
 				needsUpdate = True
 				self.holdPower = int(hold_settings.power * 255)
-			if hold_settings.duration != self.holdDuration:
-				needsUpdate = True
-				self.holdDuration = hold_settings.duration
+			if hold_settings.duration is not None:
+				if hold_settings.duration != self.holdDuration:
+					needsUpdate = True
+					self.holdDuration = hold_settings.duration
+			else:
+				if 0 != self.holdDuration:
+					ignoreEmergency = 1
+					self.holdDuration = 0
+					needsUpdate = True
 		else:
 			self.holdPower    = 0
 			self.holdDuration = 0
 
 		if needsUpdate:
-			print(f"_updateSettings {self.board.id}-{self.port:02X} {self.pulsePower} {self.pulseDuration} {self.holdPower} {self.holdDuration} {ignoreEmergency}")
+			print(f"_updateSettings {self.board.id}-{self.port:02X} pp:{self.pulsePower} pd:{self.pulseDuration} hp:{self.holdPower} hd:{self.holdDuration} ignore:{ignoreEmergency}")
 			self.board.sendStr(f"C! {self.port:02X} {self.pulsePower:02X} {self.pulseDuration:02X} {self.holdPower:02X} {self.holdDuration:02X} {ignoreEmergency}\n")
 		return needsUpdate
 
